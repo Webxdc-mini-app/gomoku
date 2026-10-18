@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五目並べ</title>
+    <script src="webxdc.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        h1 { margin: 5px 0; font-size: 1.5rem; }
+
+        #mode-select-screen {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            text-align: center;
+        }
+        .mode-btn {
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            background-color: #2e7d32;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .mode-btn:hover { background-color: #1b5e20; }
+        .mode-btn.online { background-color: #6a1b9a; }
+        .mode-btn.online:hover { background-color: #4a148c; }
+        .menu-note { font-size: 0.8rem; color: #777; margin: 0; }
+        #online-badge { display: none; background: #fff8e1; border: 2px solid #ffb300; color: #6d4c00;
+            border-radius: 8px; padding: 8px 10px; font-size: 0.9rem; font-weight: bold; }
+        #rx-info { white-space: pre-line; font-size: 0.75rem; color: #666; margin-top: 12px; max-width: 340px; text-align: center; line-height: 1.5; }
+
+        #game-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 0;
+        }
+        #status {
+            font-size: 1.05rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 8px 16px;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 340px;
+        }
+        .score-board {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+        .score-item {
+            background: #fff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 40px);
+            grid-template-rows: repeat(8, 40px);
+            gap: 2px;
+            background-color: #1b5e20;
+            padding: 4px;
+            border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .cell {
+            background-color: #2e7d32;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .cell.hint { background-color: #388e3c; cursor: pointer; }
+        .cell.hint:hover { background-color: #43a047; }
+        .cell.hint::after {
+            content: "";
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.35);
+        }
+        .cell.last { box-shadow: inset 0 0 0 2px #ffd54f; }
+        .disc {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+        }
+        .disc.black {
+            background: radial-gradient(circle at 30% 30%, #555, #111);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .disc.white {
+            background: radial-gradient(circle at 30% 30%, #fff, #ccc);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .action-btn {
+            padding: 8px 14px;
+            font-size: 0.9rem;
+            background-color: #0288d1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .action-btn:hover { background-color: #0277bd; }
+        .action-btn.purple { background-color: #6a1b9a; }
+        .action-btn.purple:hover { background-color: #4a148c; }
+        .action-btn.red { background-color: #c62828; }
+        .action-btn.red:hover { background-color: #b71c1c; }
+        .action-btn.gray { background-color: #757575; }
+        .action-btn.gray:hover { background-color: #616161; }
+        #debug-info {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 10px;
+        }
+    /* 15路盤：交点に石を置く、画面幅に合わせた碁盤 */
+        body {padding:16px 8px;box-sizing:border-box;min-height:100dvh;}
+        #mode-select-screen {max-width:420px;box-sizing:border-box;width:100%;padding:22px 16px;}
+        #game-screen {width:100%;max-width:540px;}
+        #board {grid-template-columns:repeat(15,minmax(0,1fr));grid-template-rows:repeat(15,minmax(0,1fr));width:min(94vw,510px);aspect-ratio:1;box-sizing:border-box;gap:0;padding:9px;background:#d8a655;}
+        .cell {padding:0;border:0;border-radius:0;min-width:0;background:linear-gradient(#705026,#705026) center/1px 100% no-repeat,linear-gradient(#705026,#705026) center/100% 1px no-repeat;background-color:#e6bc78;touch-action:manipulation;}
+        .cell:disabled {opacity:1;}
+        .cell.hint {background-color:#e6bc78;}
+        .cell.hint:hover {background-color:#f8d797;}
+        .cell.hint::after {display:none;}
+        .cell:focus-visible {outline:2px solid #176bb0;z-index:1;}
+        .disc {width:86%;height:86%;z-index:1;}
+        .cell.last {box-shadow:none;}
+        .cell.last .disc {outline:2px solid #e05b20;outline-offset:-3px;}
+        .cell.winning .disc {outline:3px solid #26883c;outline-offset:-3px;}
+        #rx-info,#debug-info {max-width:510px;text-align:center;overflow-wrap:anywhere;}
+        </style>
+</head>
+<body>
+
+    <!-- モード選択画面 -->
+    <div id="mode-select-screen">
+        <h2>五目並べ モード選択</h2>
+        <button class="mode-btn" onclick="startCpu(1)">👤 プレイヤー (黒) vs 💻 CPU (白)</button>
+        <button class="mode-btn" onclick="startCpu(2)">💻 CPU (黒) vs 👤 プレイヤー (白)</button>
+        <button class="mode-btn online" onclick="startOnline()">👥 チャット相手と対戦 (オンライン)</button>
+        <div id="online-badge"></div>
+        <p class="menu-note">オンライン対戦は、チャットのメンバーが<br>それぞれの端末で遊べます。<br>両方の端末で、チャットの<b>同じアプリ</b>を開いてください。</p>
+        <p class="menu-note">15路盤・黒が先手。縦・横・斜めに5個以上で勝ち。<br>禁じ手なし（長連・三三・四四も可）。数字は置いた石の数です。</p>
+        <p class="menu-note" id="ver"></p>
+    </div>
+
+    <!-- ゲームプレイ画面 -->
+    <div id="game-screen">
+        <h1 id="title">五目並べ</h1>
+        <div class="score-board">
+            <div class="score-item">⚫ <span id="black-label">黒</span>: <span id="black-score">0</span></div>
+            <div class="score-item">⚪ <span id="white-label">白</span>: <span id="white-score">0</span></div>
+        </div>
+        <div id="status">読み込み中...</div>
+        <div id="board"></div>
+        <div class="btn-group" id="action-area"></div>
+        <div class="btn-group">
+            <button class="action-btn gray" onclick="backToMenu()">メニューに戻る</button>
+        </div>
+    </div>
+
+    <div id="rx-info"></div>
+    <div id="debug-info"></div>
+
+    <script>
+        // ---------------------------------------------------------
+        // Webxdc モック（通常ブラウザ用）
+        // 複数タブを開くと BroadcastChannel で擬似的に対戦できます
+        // ---------------------------------------------------------
+        let IS_MOCK = false;
+        if (window.webxdc === undefined) {
+            IS_MOCK = true;
+            const tabId = Math.random().toString(36).slice(2, 6);
+            const channel = ('BroadcastChannel' in window) ? new BroadcastChannel('gomoku-mock') : null;
+            let serial = 0;
+            let listener = null;
+            const deliver = (update) => {
+                serial++;
+                if (listener) listener(Object.assign({}, update, { serial: serial, max_serial: serial }));
+            };
+            if (channel) channel.onmessage = (e) => deliver(e.data);
+            window.webxdc = {
+                sendUpdate: function(update) {
+                    console.log("Mock sendUpdate:", update);
+                    deliver(update);
+                    if (channel) channel.postMessage(update);
+                },
+                setUpdateListener: function(cb) { listener = cb; return Promise.resolve(); },
+                selfAddr: "player-" + tabId + "@test.com",
+                selfName: "テスト" + tabId
+            };
+            document.getElementById('debug-info').innerText =
+                "⚠ Delta Chat の外で開かれているため、テスト表示です。他の端末とは通信できません（同じブラウザの別タブとだけ通信できます）。";
+        }
+
+        const $ = (id) => document.getElementById(id);
+        const selfAddr = window.webxdc.selfAddr || 'unknown';
+        const selfName = window.webxdc.selfName || selfAddr.split('@')[0];
+        const APP_VERSION = '1.0.0';
+        $('ver').textContent = 'バージョン ' + APP_VERSION;
+        const rx = { n: 0, last: null }; // 受信したアップデートの統計（通信確認用）
+
+        // ---------------------------------------------------------
+        // 盤面ロジック（共通）
+        // ---------------------------------------------------------
+        const BLACK = 1, WHITE = 2;
+        const SIZE = 15;
+        const DIRECTIONS = [[1,0],[0,1],[1,1],[1,-1]];
+        function newState() {
+            return {board:Array.from({length:SIZE},()=>Array(SIZE).fill(0)),turn:BLACK,over:false,last:null,winner:0,winning:[]};
+        }
+        function cloneState(st) { return {...st,board:st.board.map(r=>r.slice()),winning:st.winning.map(p=>p.slice())}; }
+        function inside(r,c) {return Number.isInteger(r)&&Number.isInteger(c)&&r>=0&&r<SIZE&&c>=0&&c<SIZE;}
+        function applyMove(st,r,c,player) {
+            if(st.over || player!==st.turn || !inside(r,c) || st.board[r][c]!==0) return false;
+            st.board[r][c]=player; st.last=[r,c];
+            for(const [dr,dc] of DIRECTIONS) {
+                const line=[[r,c]];
+                for(const sign of [-1,1]) {
+                    let nr=r+dr*sign,nc=c+dc*sign;
+                    while(inside(nr,nc)&&st.board[nr][nc]===player){line.push([nr,nc]);nr+=dr*sign;nc+=dc*sign;}
+                }
+                if(line.length>=5){st.over=true;st.winner=player;st.winning=line;return true;}
+            }
+            st.over=st.board.every(row=>row.every(Boolean));
+            st.turn=3-player;return true;
+        }
+
+        function count(st) {
+            let b = 0, w = 0;
+            for (const row of st.board) for (const v of row) { if (v === BLACK) b++; else if (v === WHITE) w++; }
+            return { b: b, w: w };
+        }
+
+        // 盤面描画。hintFor: 打てる場所を示す色 (0なら非表示)
+        function drawBoard(st, hintFor, onClick) {
+            const boardEl = $('board');
+            boardEl.textContent = '';
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    const cell = document.createElement('button');
+                    cell.type = 'button';
+                    cell.setAttribute('aria-label', (r + 1) + '行 ' + (c + 1) + '列 ' + (st.board[r][c] === 1 ? '黒' : st.board[r][c] === 2 ? '白' : '空き'));
+                    cell.className = 'cell';
+                    const val = st.board[r][c];
+                    if (val !== 0) {
+                        const disc = document.createElement('div');
+                        disc.className = 'disc ' + (val === BLACK ? 'black' : 'white');
+                        cell.appendChild(disc);
+                    } else if (hintFor && st.board[r][c] === 0) {
+                        cell.classList.add('hint');
+                    }
+                    if (st.last && st.last[0] === r && st.last[1] === c) cell.classList.add('last');
+                    if (st.winning.some(p => p[0] === r && p[1] === c)) cell.classList.add('winning');
+                    cell.disabled = !onClick || val !== 0;
+                    if (onClick) cell.onclick = () => onClick(r, c);
+                    boardEl.appendChild(cell);
+                }
+            }
+            const n = count(st);
+            $('black-score').textContent = n.b;
+            $('white-score').textContent = n.w;
+            return { ...n, winner: st.winner };
+        }
+
+        function resultText(n) {
+            if (n.winner === BLACK) return '🎉 試合終了：黒の勝ち！';
+            if (n.winner === WHITE) return '🎉 試合終了：白の勝ち！';
+            return '試合終了：引き分け！';
+        }
+
+        function button(label, cls, handler) {
+            const b = document.createElement('button');
+            b.className = 'action-btn ' + (cls || '');
+            b.textContent = label;
+            b.onclick = handler;
+            return b;
+        }
+
+        // ---------------------------------------------------------
+        // 画面遷移
+        // ---------------------------------------------------------
+        let view = 'menu'; // 'menu' | 'cpu' | 'online'
+
+        function showGameScreen() {
+            $('mode-select-screen').style.display = 'none';
+            $('game-screen').style.display = 'flex';
+        }
+
+        function backToMenu() {
+            clearTimeout(cpuTimer);
+            view = 'menu';
+            $('game-screen').style.display = 'none';
+            $('mode-select-screen').style.display = 'flex';
+        }
+
+        function render() {
+            renderMenuBadge();
+            if (view === 'cpu') renderCpu();
+            else if (view === 'online') renderOnline();
+            if (view !== 'online') $('rx-info').textContent = '';
+        }
+
+        // メニュー画面に、オンライン対戦の最新状況を表示（相手の募集に気づけるように）
+        function renderMenuBadge() {
+            const el = $('online-badge');
+            const g = online;
+            let text = '';
+            if (g && g.status === 'waiting') {
+                const host = g.black || g.white;
+                text = g.hostAddr === selfAddr
+                    ? '⏳ あなたの募集に、参加者を待っています'
+                    : `📣 ${host.name} さんが対戦相手を募集中！ 上のボタンから参加できます`;
+            } else if (g && g.status === 'playing') {
+                text = myOnlineColor(g) !== 0 ? '▶ 対戦中です（上のボタンで続きから）'
+                    : `👀 ${g.black.name} vs ${g.white.name} が対戦中（観戦できます）`;
+            }
+            el.textContent = text;
+            el.style.display = text ? 'block' : 'none';
+        }
+
+        // ---------------------------------------------------------
+        // CPU 対戦（完全にローカル。チャットには何も送信しない）
+        // ---------------------------------------------------------
+        let local = newState();
+        let myColor = BLACK;
+        let cpuTimer = null;
+
+        function startCpu(color) {
+            myColor = color;
+            view = 'cpu';
+            local = newState();
+            $('title').textContent = '五目並べ (CPU戦)';
+            $('black-label').textContent = color === BLACK ? 'あなた' : 'CPU';
+            $('white-label').textContent = color === WHITE ? 'あなた' : 'CPU';
+            showGameScreen();
+            render();
+            scheduleCpu(500);
+        }
+
+        function resetCpu() {
+            local = newState();
+            render();
+            scheduleCpu(500);
+        }
+
+        function renderCpu() {
+            const humanTurn = !local.over && local.turn === myColor;
+            const n = drawBoard(local, humanTurn ? myColor : 0, humanTurn ? handleCpuClick : null);
+            const area = $('action-area');
+            area.textContent = '';
+            if (local.over) {
+                $('status').textContent = resultText(n);
+                area.appendChild(button('最初からやり直す', '', resetCpu));
+            } else {
+                const turnStr = local.turn === BLACK ? '⚫ 黒' : '⚪ 白';
+                $('status').textContent = humanTurn
+                    ? `あなたの番です (${turnStr})`
+                    : `${turnStr} (CPU考え中...)`;
+            }
+        }
+
+        function handleCpuClick(r, c) {
+            if (view !== 'cpu' || local.over || local.turn !== myColor) return;
+            if (!applyMove(local, r, c, myColor)) return;
+            render();
+            scheduleCpu(600);
+        }
+
+        function scheduleCpu(delay) {
+            clearTimeout(cpuTimer);
+            if (view === 'cpu' && !local.over && local.turn !== myColor) {
+                cpuTimer = setTimeout(makeCpuMove, delay);
+            }
+        }
+
+        // 即勝ち・相手の即勝ち阻止を優先し、連続形を評価するCPU。
+        function chooseCpuMove(st) {
+            const moves=[];
+            for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++) {
+                if(st.board[r][c])continue;
+                if(!st.last) return {r:7,c:7};
+                let near=false;
+                for(let dr=-2;dr<=2;dr++)for(let dc=-2;dc<=2;dc++)if(inside(r+dr,c+dc)&&st.board[r+dr][c+dc])near=true;
+                if(near)moves.push({r,c});
+            }
+            function value(r,c,p) {
+                let score=0;
+                for(const [dr,dc] of DIRECTIONS){
+                    let n=1,open=0;
+                    for(const sign of [-1,1]){
+                        let nr=r+dr*sign,nc=c+dc*sign;
+                        while(inside(nr,nc)&&st.board[nr][nc]===p){n++;nr+=dr*sign;nc+=dc*sign;}
+                        if(inside(nr,nc)&&!st.board[nr][nc])open++;
+                    }
+                    if(n>=5)return 10000000;
+                    if(open)score+=[0,2,20,250,6000][n]*(open===2?4:1);
+                }
+                return score;
+            }
+            let best=null,bestScore=-Infinity;
+            for(const m of moves){
+                const attack=value(m.r,m.c,st.turn),defend=value(m.r,m.c,3-st.turn);
+                const score=attack>=10000000?1e10:defend>=10000000?1e9:attack+defend*1.15-(Math.abs(m.r-7)+Math.abs(m.c-7))*.1;
+                if(score>bestScore){bestScore=score;best=m;}
+            }
+            return best;
+        }
+        function makeCpuMove() {
+            if(view!=='cpu'||local.over||local.turn===myColor)return;
+            const m=chooseCpuMove(local);
+            if(m)applyMove(local,m.r,m.c,local.turn);
+            render();scheduleCpu(600);
+        }
+
+        
+
+        // ---------------------------------------------------------
+        // オンライン対戦（チャット相手と対戦）
+        //
+        // 状態は全て webxdc のアップデート履歴から復元する。
+        //  NEW     : 対戦を募集 (募集者の色を選ぶ)
+        //  JOIN    : 募集中の対戦に参加
+        //  MOVE    : 着手 (手番のプレイヤー本人のみ有効)
+        //  RESIGN  : 投了
+        //  REMATCH : 同じ相手と色を入れ替えて再戦
+        //  CANCEL  : 募集を取り下げ
+        // ---------------------------------------------------------
+        let online = null; // { id, hostAddr, black, white, status, st, resigned }
+
+        function isParticipant(g, addr) {
+            return !!g && ((g.black && g.black.addr === addr) || (g.white && g.white.addr === addr));
+        }
+
+        function myOnlineColor(g) {
+            if (!g) return 0;
+            if (g.black && g.black.addr === selfAddr) return BLACK;
+            if (g.white && g.white.addr === selfAddr) return WHITE;
+            return 0;
+        }
+
+        function handleOnlineUpdate(p) {
+            if (!p || typeof p.addr !== 'string' || !p.addr || typeof p.id !== 'string' || !p.id) return;
+            if (p.type === 'NEW' && ((p.color !== BLACK && p.color !== WHITE) || typeof p.name !== 'string')) return;
+            if (p.type === 'JOIN' && typeof p.name !== 'string') return;
+            switch (p.type) {
+                case 'NEW': {
+                    const g = online;
+                    const host = { addr: p.addr, name: p.name };
+                    const make = () => ({
+                        id: p.id,
+                        hostAddr: p.addr,
+                        ts: p.ts || 0,
+                        black: p.color === BLACK ? host : null,
+                        white: p.color === WHITE ? host : null,
+                        status: 'waiting',
+                        st: newState(),
+                        resigned: 0,
+                        autoMatched: false
+                    });
+                    // 同時募集の解決：両者がほぼ同時に募集すると、お互いの募集が見えないまま
+                    // 双方が「待ち」になってしまう。(ts, id) が小さい方を募集者とし、
+                    // もう一方を自動で参加者にする。どの端末でも同じ結果になる。
+                    if (g && g.status === 'waiting' && g.hostAddr !== p.addr) {
+                        const pts = p.ts || 0;
+                        const existingWins = g.ts < pts || (g.ts === pts && g.id < p.id);
+                        if (existingWins) {
+                            if (!g.black) g.black = host; else g.white = host;
+                            g.status = 'playing';
+                            g.autoMatched = true;
+                        } else {
+                            const oldHost = g.black || g.white;
+                            const ng = make();
+                            if (!ng.black) ng.black = oldHost; else ng.white = oldHost;
+                            ng.status = 'playing';
+                            ng.autoMatched = true;
+                            online = ng;
+                        }
+                        break;
+                    }
+                    const allowed = !g || g.status === 'over' ||
+                        (g.status === 'waiting' && g.hostAddr === p.addr) ||
+                        isParticipant(g, p.addr);
+                    if (!allowed) return;
+                    online = make();
+                    break;
+                }
+                case 'JOIN': {
+                    const g = online;
+                    if (!g || g.id !== p.id || g.status !== 'waiting' || p.addr === g.hostAddr) return;
+                    const guest = { addr: p.addr, name: p.name };
+                    if (!g.black) g.black = guest; else g.white = guest;
+                    g.status = 'playing';
+                    break;
+                }
+                case 'MOVE': {
+                    const g = online;
+                    if (!g || g.id !== p.id || g.status !== 'playing') return;
+                    const player = g.st.turn === BLACK ? g.black : g.white;
+                    if (!player || player.addr !== p.addr) return; // 手番の本人だけ
+                    if (applyMove(g.st, p.row, p.col, g.st.turn) && g.st.over) g.status = 'over';
+                    break;
+                }
+                case 'RESIGN': {
+                    const g = online;
+                    if (!g || g.id !== p.id || g.status !== 'playing') return;
+                    if (g.black.addr === p.addr) g.resigned = BLACK;
+                    else if (g.white.addr === p.addr) g.resigned = WHITE;
+                    else return;
+                    g.status = 'over';
+                    break;
+                }
+                case 'REMATCH': {
+                    const g = online;
+                    if (!g || p.previousId !== g.id || g.status !== 'over' || !g.black || !g.white || !isParticipant(g, p.addr)) return;
+                    online = {
+                        id: p.id,
+                        hostAddr: g.hostAddr,
+                        ts: 0,
+                        autoMatched: false,
+                        black: g.white,   // 色を入れ替える
+                        white: g.black,
+                        status: 'playing',
+                        st: newState(),
+                        resigned: 0
+                    };
+                    break;
+                }
+                case 'CANCEL': {
+                    const g = online;
+                    if (g && g.id === p.id && g.status === 'waiting' && g.hostAddr === p.addr) online = null;
+                    break;
+                }
+            }
+        }
+
+        function newId() {
+            return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        }
+
+        function short(name) {
+            name = name || '?';
+            return name.length > 10 ? name.slice(0, 10) + '…' : name;
+        }
+
+        function summaryFor(g, st) {
+            if (!g) return '';
+            if (g.status === 'waiting') return `${short((g.black || g.white).name)} が対戦相手を募集中`;
+            const n = count(st);
+            let s = `⚫${short(g.black.name)} ${n.b} - ${n.w} ${short(g.white.name)}⚪`;
+            if (g.status === 'over' || st.over) s += ' (終局)';
+            return s;
+        }
+
+        function send(payload, info, summary) {
+            const upd = { payload: payload };
+            if (info) upd.info = info;
+            if (summary) upd.summary = summary;
+            window.webxdc.sendUpdate(upd, '');
+        }
+
+        function startOnline() {
+            view = 'online';
+            $('title').textContent = '五目並べ (オンライン)';
+            showGameScreen();
+            render();
+        }
+
+        function hostGame(color) {
+            const label = color === BLACK ? '黒' : '白';
+            send({ type: 'NEW', id: newId(), ts: Date.now(), color: color, addr: selfAddr, name: selfName },
+                 `${selfName} が対戦相手を募集しています (${label}番)`,
+                 `${short(selfName)} が対戦相手を募集中`);
+        }
+
+        function joinGame() {
+            const g = online;
+            if (!g || g.status !== 'waiting') return;
+            send({ type: 'JOIN', id: g.id, addr: selfAddr, name: selfName },
+                 `${selfName} が対戦に参加しました`,
+                 `対戦開始: ${short((g.black || g.white).name)} vs ${short(selfName)}`);
+        }
+
+        function cancelGame() {
+            if (!online) return;
+            send({ type: 'CANCEL', id: online.id, addr: selfAddr }, `${selfName} が募集を取り下げました`, '');
+        }
+
+        function rematch() {
+            send({ type: 'REMATCH', id: newId(), previousId: online.id, addr: selfAddr }, `${selfName} が再戦を申し込みました（色を交代）`, '');
+        }
+
+        let resignArmed = false;
+        let resignTimer = null;
+        function resign() {
+            const g = online;
+            if (!g || g.status !== 'playing') return;
+            if (!resignArmed) { // 誤タップ防止: 2回押しで確定
+                resignArmed = true;
+                renderOnline();
+                resignTimer = setTimeout(() => { resignArmed = false; renderOnline(); }, 3000);
+                return;
+            }
+            clearTimeout(resignTimer);
+            resignArmed = false;
+            send({ type: 'RESIGN', id: g.id, addr: selfAddr }, `${selfName} が投了しました`, `${summaryFor(g, g.st)} 投了`);
+        }
+
+        function handleOnlineClick(r, c) {
+            const g = online;
+            if (view !== 'online' || !g || g.status !== 'playing') return;
+            if (myOnlineColor(g) !== g.st.turn) return;
+            if (!inside(r,c) || g.st.board[r][c] !== 0) return;
+
+            // 送信前に手を適用した結果を先読みして、info/summary に反映する
+            const preview = cloneState(g.st);
+            applyMove(preview, r, c, g.st.turn);
+            const colorName = g.st.turn === BLACK ? '黒' : '白';
+            let info = `${selfName} (${colorName}) が (${r + 1}, ${c + 1}) に置きました`;
+            const nextPlayer = preview.turn === BLACK ? g.black : g.white;
+            if (preview.over) info += ' ／ ' + resultText(preview).replace('🎉 ', '');
+            
+            else info += ` ／ 次は ${nextPlayer.name} の番`;
+
+            send({ type: 'MOVE', id: g.id, row: r, col: c, addr: selfAddr }, info,
+                 summaryFor(Object.assign({}, g, { status: preview.over ? 'over' : g.status }), preview));
+        }
+
+        function renderOnline() {
+            const g = online;
+            const area = $('action-area');
+            area.textContent = '';
+            const t = rx.last ? rx.last.toLocaleTimeString('ja-JP') : 'まだありません';
+            let hint = '';
+            if (g && g.status === 'waiting' && g.hostAddr === selfAddr) {
+                hint = '相手の端末に届くまで、数秒〜数十秒かかることがあります。相手にも、このチャットの同じアプリを開いてもらってください。\n';
+            }
+            if (g && g.status === 'playing' && g.autoMatched && myOnlineColor(g) !== 0 && g.st.last === null) {
+                hint = `同時に募集したため、自動で対戦が始まりました。あなたは ${myOnlineColor(g) === BLACK ? '黒（先手）' : '白（後手）'} です。\n`;
+            }
+            $('rx-info').textContent = (IS_MOCK ? '⚠ テスト表示中：Delta Chat 内で開くと他の端末と通信できます\n' : '') + hint + `通信: 受信 ${rx.n} 件 ／ 最後の受信 ${t} ／ v${APP_VERSION}`;
+
+            // 対戦なし
+            if (!g) {
+                drawBoard(newState(), 0, null);
+                $('black-label').textContent = '黒';
+                $('white-label').textContent = '白';
+                $('status').textContent = '対戦はまだありません。相手を募集しましょう！';
+                area.appendChild(button('⚫ 黒で募集', 'purple', () => hostGame(BLACK)));
+                area.appendChild(button('⚪ 白で募集', 'purple', () => hostGame(WHITE)));
+                return;
+            }
+
+            const me = myOnlineColor(g);
+            $('black-label').textContent = g.black ? short(g.black.name) : '(募集中)';
+            $('white-label').textContent = g.white ? short(g.white.name) : '(募集中)';
+
+            // 相手待ち
+            if (g.status === 'waiting') {
+                drawBoard(g.st, 0, null);
+                const host = g.black || g.white;
+                const hostColor = g.black ? '⚫ 黒' : '⚪ 白';
+                const guestColor = g.black ? '⚪ 白' : '⚫ 黒';
+                if (g.hostAddr === selfAddr) {
+                    $('status').textContent = `⏳ 相手の参加を待っています (あなたは ${hostColor})`;
+                    area.appendChild(button('募集をやめる', 'gray', cancelGame));
+                } else {
+                    $('status').textContent = `${host.name} さんが対戦相手を募集中 (あなたは ${guestColor})`;
+                    area.appendChild(button('✋ 参加する', 'purple', joinGame));
+                }
+                return;
+            }
+
+            // 対戦中 / 終局
+            const myTurn = g.status === 'playing' && me !== 0 && g.st.turn === me;
+            const n = drawBoard(g.st, myTurn ? me : 0, myTurn ? handleOnlineClick : null);
+
+            if (g.status === 'over') {
+                let text;
+                if (g.resigned) {
+                    const loser = g.resigned === BLACK ? g.black : g.white;
+                    text = `🏳️ ${loser.name} さんが投了：${g.resigned === BLACK ? '白' : '黒'}の勝ち！`;
+                } else {
+                    text = resultText(n);
+                }
+                if (me !== 0 && !g.resigned) {
+                    const won = n.winner === me;
+                    if (n.winner) text += won ? ' あなたの勝ちです' : ' あなたの負けです';
+                } else if (me !== 0 && g.resigned) {
+                    text += g.resigned === me ? ' (あなたが投了)' : ' あなたの勝ちです';
+                }
+                $('status').textContent = text;
+                if (me !== 0) area.appendChild(button('🔁 もう一度 (色を交代)', 'purple', rematch));
+                else area.appendChild(button('⚫ 黒で募集', 'purple', () => hostGame(BLACK)));
+                if (me === 0) area.appendChild(button('⚪ 白で募集', 'purple', () => hostGame(WHITE)));
+                else area.appendChild(button('新しく募集する', 'gray', () => hostGame(me === BLACK ? WHITE : BLACK)));
+                return;
+            }
+
+            const turnPlayer = g.st.turn === BLACK ? g.black : g.white;
+            const turnStr = g.st.turn === BLACK ? '⚫ 黒' : '⚪ 白';
+            if (me === 0) {
+                $('status').textContent = `👀 観戦中：${turnStr} (${turnPlayer.name}) の番`;
+            } else if (myTurn) {
+                $('status').textContent = `あなたの番です (${turnStr})`;
+            } else {
+                $('status').textContent = `相手 (${turnPlayer.name}) の番です…`;
+            }
+            if (me !== 0) {
+                area.appendChild(button(resignArmed ? '本当に投了する？' : '投了', 'red', resign));
+            }
+        }
+
+        // ---------------------------------------------------------
+        // Webxdc リスナー（過去の履歴も順に流れてくるため、最後の1件でだけ描画）
+        // ---------------------------------------------------------
+        let renderTimer = null;
+        window.webxdc.setUpdateListener((update) => {
+            rx.n++; rx.last = new Date();
+            const p = update.payload;
+            if (p && typeof p.type === 'string') handleOnlineUpdate(p);
+            // 履歴の再生中は何度も描画しないよう、少し待ってからまとめて描画
+            clearTimeout(renderTimer);
+            renderTimer = setTimeout(render, 40);
+        }, 0);
+    </script>
+</body>
+</html>
